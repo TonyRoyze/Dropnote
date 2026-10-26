@@ -1,4 +1,4 @@
--- Dropnote: run once in the Supabase SQL editor.
+-- Dropnote: run this setup script in the Supabase SQL editor to create or update the app schema and RPC functions.
 -- Room codes work like shared passcodes. Do not use this for sensitive text.
 create table if not exists public.dropnote_rooms (
   code text primary key check (code ~ '^[A-Z0-9]{5}$'),

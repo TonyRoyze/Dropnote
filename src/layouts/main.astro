@@ -1,16 +1,38 @@
 ---
 import '../styles/global.css';
+import { Image } from 'astro:assets';
+import ConnectionStatus from '../components/ConnectionStatus';
+import logo from '../../logo.jpeg';
+
+interface Props {
+	supabaseUrl?: string;
+	supabaseKey?: string;
+	activeRoom?: boolean;
+}
+
+const { supabaseUrl = '', supabaseKey = '', activeRoom = false } = Astro.props;
 ---
 
 <html lang="en">
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="theme-color" content="#f4f5f1" />
+		<meta name="theme-color" content="#f3f3f7" />
 		<meta name="description" content="A small shared clipboard. Open a room, drop a note, copy it anywhere." />
+		<link rel="icon" type="image/png" href="/favicon.png" />
 		<title>Dropnote</title>
 	</head>
 	<body>
+		<header class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-5 sm:px-8 sm:py-8">
+			<a class="flex items-center gap-2.5 text-[#2b2439]" href="/">
+				<Image class="size-9 rounded-xl object-cover" src={logo} alt="" loading="eager" fetchpriority="high" />
+				<span class="font-semibold tracking-[-0.03em]">dropnote</span>
+			</a>
+			<ConnectionStatus client:load shared={Boolean(supabaseUrl && supabaseKey)} activeRoom={activeRoom} />
+		</header>
 		<slot />
+		<footer class="mx-auto w-full max-w-6xl px-4 pb-6 pt-4 text-center text-xs text-[#786f88] sm:px-8">
+			Made with <span aria-label="love">❤️</span> by <a class="font-medium text-[#6d4ca3] hover:underline" href="https://github.com/TonyRoyze">Tony Royze</a>
+		</footer>
 	</body>
 </html>

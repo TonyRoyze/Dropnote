@@ -1,0 +1,11 @@
+---
+import RoomApp from '../../components/RoomApp';
+import MainLayout from '../../layouts/main.astro';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
+---
+
+<MainLayout supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} activeRoom>
+	<RoomApp client:load supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />
+</MainLayout>
