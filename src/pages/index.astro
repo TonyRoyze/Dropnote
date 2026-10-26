@@ -1,0 +1,8 @@
+---
+import MainLayout from '../layouts/main.astro';
+import ClipboardApp from '../components/ClipboardApp';
+---
+
+<MainLayout>
+	<ClipboardApp client:load supabaseUrl={import.meta.env.PUBLIC_SUPABASE_URL ?? ''} supabaseKey={import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? ''} />
+</MainLayout>
