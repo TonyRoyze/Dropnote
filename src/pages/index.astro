@@ -1,8 +1,30 @@
 ---
+import HomeActions from '../components/HomeActions';
 import MainLayout from '../layouts/main.astro';
-import ClipboardApp from '../components/ClipboardApp';
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL ?? '';
+const supabaseKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '';
 ---
 
-<MainLayout>
-	<ClipboardApp client:load supabaseUrl={import.meta.env.PUBLIC_SUPABASE_URL ?? ''} supabaseKey={import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? ''} />
+<MainLayout supabaseUrl={supabaseUrl} supabaseKey={supabaseKey}>
+	<main class="px-4 pb-5 sm:px-8 sm:pb-8">
+		<section class="mx-auto grid min-h-[calc(100vh-100px)] w-full max-w-6xl items-center gap-12 py-12 lg:grid-cols-[1fr_0.78fr]">
+			<div class="max-w-xl">
+				<h1 class="text-[clamp(3.4rem,8vw,6.8rem)] font-semibold leading-[0.91] tracking-[-0.075em] text-[#2b2439]">Copy here.<br /><span class="text-[#796f8c]">Paste there.</span></h1>
+				<p class="mt-7 max-w-md text-base leading-7 text-[#71697f]">A tiny shared clipboard for the notes, links, and snippets that need to get from one screen to another.</p>
+				<HomeActions client:load supabaseUrl={supabaseUrl} supabaseKey={supabaseKey} />
+			</div>
+			<div class="relative mx-auto w-full max-w-[420px]">
+				<div class="absolute -inset-5 rotate-[-5deg] rounded-[28px] bg-[#ede7f6]"></div>
+				<div class="relative rotate-[2deg] overflow-hidden rounded-[20px] border border-[#e6def1] bg-white shadow-[0_24px_80px_-45px_rgba(33,54,44,.28)]">
+					<div class="flex items-center justify-between border-b border-[#f1edf7] px-5 py-4"><span class="text-xs font-medium text-[#81788f]">Room</span><span class="flex gap-1"><i class="size-1.5 rounded-full bg-[#dcd5e8]"></i><i class="size-1.5 rounded-full bg-[#dcd5e8]"></i><i class="size-1.5 rounded-full bg-[#dcd5e8]"></i></span></div>
+					<div class="space-y-3 p-4">
+						<div class="rounded-xl border border-[#e9e2f2] bg-[#faf8fd] p-4"><div class="mb-3 flex items-center justify-between text-[11px] text-[#91899d]"><span>Snippet</span><span>Copy</span></div><p class="font-mono text-[13px] leading-6 text-[#443b53]">https://docs.example.com/<br />getting-started</p></div>
+						<div class="rounded-xl border border-[#e9e2f2] bg-[#faf8fd] p-4"><div class="mb-2 text-[11px] text-[#91899d]">Note just now</div><p class="text-sm leading-6 text-[#443b53]">Send this to the other laptop<br />when you get a chance.</p></div>
+						<div class="flex items-center gap-2 rounded-xl bg-[#f0ebf8] p-2"><span class="h-9 flex-1 rounded-lg bg-white"></span><span class="grid size-9 place-items-center rounded-lg bg-[#6d4ca3] text-xs font-medium text-white"></span></div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
 </MainLayout>
