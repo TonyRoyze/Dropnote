@@ -54,6 +54,20 @@ begin
 end;
 $$;
 
+create or replace function public.read_note(p_code text, p_note_id uuid)
+returns table (id uuid, content text, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  return query
+    select n.id, n.content, n.created_at
+    from public.dropnote_notes n
+    where n.room_code = p_code and n.id = p_note_id;
+end;
+$$;
+
 create or replace function public.post_note(p_code text, p_content text)
 returns uuid
 language plpgsql
@@ -97,10 +111,12 @@ $$;
 
 revoke all on function public.create_room(text) from public, anon, authenticated;
 revoke all on function public.read_notes(text) from public, anon, authenticated;
+revoke all on function public.read_note(text, uuid) from public, anon, authenticated;
 revoke all on function public.post_note(text, text) from public, anon, authenticated;
 revoke all on function public.delete_room(text) from public, anon, authenticated;
 grant execute on function public.create_room(text) to anon, authenticated;
 grant execute on function public.read_notes(text) to anon, authenticated;
+grant execute on function public.read_note(text, uuid) to anon, authenticated;
 grant execute on function public.post_note(text, text) to anon, authenticated;
 grant execute on function public.delete_room(text) to anon, authenticated;
 
