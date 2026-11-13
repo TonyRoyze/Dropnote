@@ -16,7 +16,9 @@ Without Supabase credentials, rooms are stored in this browser only. To share ro
 3. Copy `.env.example` to `.env` and add your project URL and publishable (or legacy anon) key.
 4. Restart the dev server.
 
-Supabase Realtime broadcasts a small refresh event when notes are added. The note content remains in Postgres and is fetched through the room-code functions.
+Supabase Realtime broadcasts a small refresh event when notes are added or reordered. Use the up/down arrows on each note to change the shared order. New notes appear at the top.
+
+For existing Supabase installations, rerun `supabase/setup.sql` to enable saved ordering. The note content remains in Postgres and is fetched through the room-code functions.
 
 Five-character room codes are convenient shared passcodes, not strong authentication. Don't put passwords, private keys, or sensitive data in a room. For longer-term public use, add rate limiting and a longer secret room token.
 
