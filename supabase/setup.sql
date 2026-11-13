@@ -12,6 +12,18 @@ create table if not exists public.dropnote_notes (
   created_at timestamptz not null default now()
 );
 
+-- Preserve the existing newest-first order when upgrading an existing database.
+alter table public.dropnote_notes add column if not exists position bigint;
+with ranked as (
+  select id, row_number() over (partition by room_code order by created_at desc, id) as position
+  from public.dropnote_notes
+)
+update public.dropnote_notes n set position = r.position
+from ranked r where r.id = n.id and n.position is null;
+alter table public.dropnote_notes alter column position set not null;
+create index if not exists dropnote_notes_room_position_idx
+  on public.dropnote_notes (room_code, position);
+
 create index if not exists dropnote_notes_room_created_idx
   on public.dropnote_notes (room_code, created_at desc);
 
@@ -50,7 +62,7 @@ begin
     select n.id, n.content, n.created_at
     from public.dropnote_notes n
     where n.room_code = p_code
-    order by n.created_at desc;
+    order by n.position, n.id;
 end;
 $$;
 
@@ -80,15 +92,59 @@ begin
   if char_length(trim(p_content)) not between 1 and 10000 then
     raise exception 'Note must contain between 1 and 10000 characters';
   end if;
-  if not exists (select 1 from public.dropnote_rooms r where r.code = p_code) then
+  -- Serialize inserts and moves within a room.
+  perform 1 from public.dropnote_rooms r where r.code = p_code for update;
+  if not found then
     raise exception 'Room not found';
   end if;
-  insert into public.dropnote_notes (room_code, content)
-  values (p_code, trim(p_content))
+  insert into public.dropnote_notes (room_code, content, position)
+  values (p_code, trim(p_content),
+    (select coalesce(min(n.position), 1) - 1 from public.dropnote_notes n where n.room_code = p_code))
   returning id into new_id;
   return new_id;
 end;
 $$;
+
+-- The room code authorizes access, matching the existing note RPCs.
+-- Lock the room before finding the neighbor to avoid conflicting concurrent moves.
+create or replace function public.move_note(p_code text, p_note_id uuid, p_direction integer)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  current_position bigint;
+  neighbor_id uuid;
+  neighbor_position bigint;
+begin
+  if p_direction is null or p_direction not in (-1, 1) then
+    raise exception 'Invalid direction';
+  end if;
+  perform 1 from public.dropnote_rooms r where r.code = p_code for update;
+  if not found then raise exception 'Room not found'; end if;
+  select n.position into current_position from public.dropnote_notes n
+    where n.room_code = p_code and n.id = p_note_id;
+  if not found then raise exception 'Note not found'; end if;
+  if p_direction = -1 then
+    select n.id, n.position into neighbor_id, neighbor_position
+      from public.dropnote_notes n
+      where n.room_code = p_code and n.position < current_position
+      order by n.position desc limit 1;
+  else
+    select n.id, n.position into neighbor_id, neighbor_position
+      from public.dropnote_notes n
+      where n.room_code = p_code and n.position > current_position
+      order by n.position limit 1;
+  end if;
+  if neighbor_id is null then return; end if;
+  update public.dropnote_notes n
+    set position = case when n.id = p_note_id then neighbor_position else current_position end
+    where n.room_code = p_code and n.id in (p_note_id, neighbor_id);
+end;
+$$;
+revoke all on function public.move_note(text, uuid, integer) from public, anon, authenticated;
+grant execute on function public.move_note(text, uuid, integer) to anon, authenticated;
 
 create or replace function public.delete_room(p_code text)
 returns boolean

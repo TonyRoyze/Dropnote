@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
-import { Check, ChevronLeft, Clipboard, Copy, Link2, LoaderCircle, RefreshCw, Send, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, Clipboard, Copy, Link2, LoaderCircle, RefreshCw, Send, Trash2, X } from 'lucide-react';
 import { Button } from './ui/button';
 import { Kbd } from './ui/kbd';
 import { Textarea } from './ui/textarea';
@@ -74,6 +74,7 @@ export default function RoomApp({ supabaseUrl = '', supabaseKey = '' }: Props) {
 		if (!room || !client) { setConnected(false); return; }
 		const channel = client.channel(`room:${room}`, { config: { broadcast: { self: false } } });
 		channel.on('broadcast', { event: 'note-added' }, () => void loadNotes(room));
+		channel.on('broadcast', { event: 'notes-reordered' }, () => void loadNotes(room));
 		channel.subscribe((status) => setConnected(status === 'SUBSCRIBED'));
 		channelRef.current = channel;
 		return () => { channelRef.current = null; void client.removeChannel(channel); };
@@ -95,6 +96,41 @@ export default function RoomApp({ supabaseUrl = '', supabaseKey = '' }: Props) {
 			local[room] = next; localStorage.setItem(localStorageKey, JSON.stringify(local)); setNotes(next); setDraft('');
 		}
 		setBusy(false);
+	};
+
+	const moveNote = async (id: string, direction: -1 | 1) => {
+		if (busy) return;
+		const index = notes.findIndex((note) => note.id === id);
+		const target = index + direction;
+		if (index < 0 || target < 0 || target >= notes.length) return;
+		setBusy(true); setError('');
+		try {
+			if (client) {
+				const { error: moveError } = await client.rpc('move_note', { p_code: room, p_note_id: id, p_direction: direction });
+				if (moveError) {
+					setError(moveError.code === 'PGRST202'
+						? 'Reordering is not enabled yet. Run the updated supabase/setup.sql in the Supabase SQL Editor, then retry.'
+						: 'Could not reorder notes. Refresh and try again.');
+					return;
+				}
+				await loadNotes(room);
+				await channelRef.current?.send({ type: 'broadcast', event: 'notes-reordered', payload: {} });
+			} else {
+				const local = readLocal();
+				const next = [...(local[room] ?? [])];
+				const current = next.findIndex((note) => note.id === id);
+				const destination = current + direction;
+				if (current < 0 || destination < 0 || destination >= next.length) return;
+				[next[current], next[destination]] = [next[destination], next[current]];
+				local[room] = next;
+				localStorage.setItem(localStorageKey, JSON.stringify(local));
+				setNotes(next);
+			}
+		} catch {
+			setError('Could not save the new order. Please try again.');
+		} finally {
+			setBusy(false);
+		}
 	};
 
 	const deleteRoom = async () => {
@@ -138,7 +174,7 @@ export default function RoomApp({ supabaseUrl = '', supabaseKey = '' }: Props) {
 			</form>
 			{error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
 			<div className="mb-3 mt-9 flex items-center justify-between"><h2 className="text-sm font-semibold text-[#4a415a]">Shared notes <span className="ml-1 font-normal text-[#a098ad]">{notes.length}</span></h2><Button variant="ghost" size="sm" aria-label="Refresh shared notes" onClick={() => void loadNotes(room)} className="h-8 gap-1.5 px-2 text-xs"><RefreshCw size={14}/> Refresh</Button></div>
-			{notes.length === 0 ? <div className="rounded-2xl border border-dashed border-[#ddd5e9] px-6 py-14 text-center"><div className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-[#efeaf7] text-[#725498]"><Clipboard size={19}/></div><h3 className="text-sm font-medium text-[#4a415a]">Nothing in the room yet</h3><p className="mt-1 text-sm text-[#928aa0]">Drop in a note, link, or snippet to get started.</p></div> : <div className="relative space-y-3 pl-7 before:absolute before:bottom-0 before:left-3 before:top-0 before:w-px before:bg-[#ddd5e9]">{notes.map((note, index) => <article key={note.id} className="group relative rounded-2xl border border-[#e5def0] bg-white px-5 py-4 transition-colors before:absolute before:-left-5 before:top-6 before:size-2 before:rounded-full before:bg-[#7958ad] before:ring-4 before:ring-[#f7f4fb] hover:border-[#d4c8e8]"><div className="mb-3 flex items-center justify-between"><span className="text-xs text-[#898197]">{formatTime(note.created_at)} <span className="mx-1 text-[#d2c9de]">/</span> Note {notes.length - index}</span><div className="flex gap-1"><Button variant="ghost" size="sm" onClick={() => void copyText(`dropnote:${room}:${note.id}`, `ref-${note.id}`)} className="h-8 rounded-lg px-2 text-xs">{copied === `ref-${note.id}` ? <Check size={14}/> : <Link2 size={14}/>} {copied === `ref-${note.id}` ? 'Reference copied' : 'Copy reference'}</Button><Button variant="ghost" size="sm" onClick={() => void copyText(note.content, note.id)} className="h-8 rounded-lg px-2 text-xs">{copied === note.id ? <Check size={14}/> : <Copy size={14}/>} {copied === note.id ? 'Copied' : 'Copy'}</Button></div></div><pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-[#423a50]">{note.content}</pre></article>)}</div>}
+			{notes.length === 0 ? <div className="rounded-2xl border border-dashed border-[#ddd5e9] px-6 py-14 text-center"><div className="mx-auto mb-3 grid size-11 place-items-center rounded-full bg-[#efeaf7] text-[#725498]"><Clipboard size={19}/></div><h3 className="text-sm font-medium text-[#4a415a]">Nothing in the room yet</h3><p className="mt-1 text-sm text-[#928aa0]">Drop in a note, link, or snippet to get started.</p></div> : <div className="relative space-y-3 pl-7 before:absolute before:bottom-0 before:left-3 before:top-0 before:w-px before:bg-[#ddd5e9]">{notes.map((note, index) => <article key={note.id} className="group relative rounded-2xl border border-[#e5def0] bg-white px-5 py-4 transition-colors before:absolute before:-left-5 before:top-6 before:size-2 before:rounded-full before:bg-[#7958ad] before:ring-4 before:ring-[#f7f4fb] hover:border-[#d4c8e8]"><div className="mb-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-[#898197]">{formatTime(note.created_at)} <span className="mx-1 text-[#d2c9de]">/</span> Note {notes.length - index}</span><div className="flex flex-wrap gap-1"><Button variant="ghost" size="icon" aria-label={`Move note ${notes.length - index} up`} title="Move up" disabled={busy || index === 0} onClick={() => void moveNote(note.id, -1)}><ArrowUp data-icon="inline-start" /></Button><Button variant="ghost" size="icon" aria-label={`Move note ${notes.length - index} down`} title="Move down" disabled={busy || index === notes.length - 1} onClick={() => void moveNote(note.id, 1)}><ArrowDown data-icon="inline-start" /></Button><Button variant="ghost" size="sm" onClick={() => void copyText(`dropnote:${room}:${note.id}`, `ref-${note.id}`)} className="h-8 rounded-lg px-2 text-xs">{copied === `ref-${note.id}` ? <Check size={14}/> : <Link2 size={14}/>} {copied === `ref-${note.id}` ? 'Reference copied' : 'Copy reference'}</Button><Button variant="ghost" size="sm" onClick={() => void copyText(note.content, note.id)} className="h-8 rounded-lg px-2 text-xs">{copied === note.id ? <Check size={14}/> : <Copy size={14}/>} {copied === note.id ? 'Copied' : 'Copy'}</Button></div></div><pre className="overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-6 text-[#423a50]">{note.content}</pre></article>)}</div>}
 		</section>
 		{showDelete && <div className="fixed inset-0 z-30 grid place-items-center bg-[#251d34]/40 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) setShowDelete(false); }}><div role="alertdialog" aria-modal="true" aria-labelledby="delete-title" aria-describedby="delete-description" className="w-full max-w-sm rounded-2xl border border-[#e5def0] bg-[#fbf9fe] p-6 shadow-2xl"><div className="mb-4 flex items-start justify-between"><div><h2 id="delete-title" className="text-lg font-semibold tracking-tight text-[#30283f]">Permanently delete room?</h2><p id="delete-description" className="mt-2 text-sm leading-6 text-[#81788f]">This permanently deletes room <span className="font-mono font-semibold text-[#30283f]">{room}</span> and every note in it for everyone. This cannot be undone.</p></div><button aria-label="Close dialog" disabled={busy} onClick={() => setShowDelete(false)} className="grid size-8 shrink-0 place-items-center rounded-lg text-[#7f758e] hover:bg-[#f1edf7]"><X size={17}/></button></div><label htmlFor="delete-room-code" className="mb-2 block text-sm font-medium text-[#4a415a]">Type {room} to confirm</label><input id="delete-room-code" autoCapitalize="characters" value={deleteCode} onChange={(event) => setDeleteCode(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))} maxLength={5} className="h-12 w-full rounded-lg border border-[#ded5ea] bg-white px-4 font-mono text-lg tracking-[0.2em] outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100" />{error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}<div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={() => setShowDelete(false)}>Cancel</Button><Button type="button" variant="destructive" disabled={busy || deleteCode !== room} onClick={() => void deleteRoom()}>{busy ? <LoaderCircle className="animate-spin" size={16}/> : <Trash2 size={16}/>} Delete permanently</Button></div></div></div>}
 	</main>;
