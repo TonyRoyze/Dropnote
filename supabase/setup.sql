@@ -177,3 +177,68 @@ grant execute on function public.post_note(text, text) to anon, authenticated;
 grant execute on function public.delete_room(text) to anon, authenticated;
 
 -- Realtime broadcasts use public channels and never carry note content.
+
+-- These RPCs use the existing shared room passcode authorization model.
+-- Lock the room consistently with post_note and move_note.
+create or replace function public.edit_note(p_code text, p_note_id uuid, p_content text)
+returns void language plpgsql security definer set search_path = ''
+as $$
+begin
+  if p_content is null or char_length(trim(p_content)) not between 1 and 10000 then
+    raise exception 'Note must contain between 1 and 10000 characters';
+  end if;
+  perform 1 from public.dropnote_rooms r where r.code = p_code for update;
+  if not found then raise exception 'Room not found'; end if;
+  update public.dropnote_notes set content = trim(p_content)
+    where room_code = p_code and id = p_note_id;
+  if not found then raise exception 'Note not found'; end if;
+end;
+$$;
+
+create or replace function public.delete_note(p_code text, p_note_id uuid)
+returns void language plpgsql security definer set search_path = ''
+as $$
+begin
+  perform 1 from public.dropnote_rooms r where r.code = p_code for update;
+  if not found then raise exception 'Room not found'; end if;
+  delete from public.dropnote_notes where room_code = p_code and id = p_note_id;
+  if not found then raise exception 'Note not found'; end if;
+end;
+$$;
+
+create or replace function public.move_note_to(
+  p_code text, p_note_id uuid, p_target_id uuid, p_before boolean
+)
+returns void language plpgsql security definer set search_path = ''
+as $$
+declare
+  ordered_ids uuid[];
+  source_index integer;
+  target_index integer;
+begin
+  if p_before is null then raise exception 'Invalid placement'; end if;
+  perform 1 from public.dropnote_rooms r where r.code = p_code for update;
+  if not found then raise exception 'Room not found'; end if;
+  select array_agg(n.id order by n.position, n.id) into ordered_ids
+    from public.dropnote_notes n where n.room_code = p_code;
+  if array_position(ordered_ids, p_note_id) is null
+     or array_position(ordered_ids, p_target_id) is null then
+    raise exception 'Note not found';
+  end if;
+  if p_note_id = p_target_id then return; end if;
+  ordered_ids := array_remove(ordered_ids, p_note_id);
+  target_index := array_position(ordered_ids, p_target_id);
+  source_index := target_index + case when p_before then 0 else 1 end;
+  ordered_ids := ordered_ids[1:source_index - 1] || array[p_note_id] || ordered_ids[source_index:];
+  update public.dropnote_notes n set position = ordered.position
+    from unnest(ordered_ids) with ordinality as ordered(id, position)
+    where n.room_code = p_code and n.id = ordered.id;
+end;
+$$;
+
+revoke all on function public.edit_note(text, uuid, text) from public, anon, authenticated;
+revoke all on function public.delete_note(text, uuid) from public, anon, authenticated;
+revoke all on function public.move_note_to(text, uuid, uuid, boolean) from public, anon, authenticated;
+grant execute on function public.edit_note(text, uuid, text) to anon, authenticated;
+grant execute on function public.delete_note(text, uuid) to anon, authenticated;
+grant execute on function public.move_note_to(text, uuid, uuid, boolean) to anon, authenticated;
