@@ -195,3 +195,27 @@ button, input, textarea { font: inherit; }
     letter-spacing: var(--tracking-normal);
 	}
 }
+
+.note-controls { display: flex; align-items: center; gap: 7px; margin-left: auto; }
+.note-action-group { display: flex; align-items: center; padding: 2px; border: 1px solid #eee8f5; border-radius: 9px; background: #fbf9fe; transition: transform 150ms ease, box-shadow 150ms ease; }
+.note-action-group:focus-within { position: relative; z-index: 1; transform: scale(1.1); box-shadow: 0 3px 12px #423a5012; }
+.note-action { display: grid; place-items: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: #81788f; cursor: pointer; }
+.note-action svg { width: 14px; height: 14px; }
+.note-action:hover:not(:disabled) { background: #ede6f6; color: #6d4ca3; }
+.note-action:focus-visible { outline: 2px solid #7958ad; outline-offset: 2px; }
+.note-action:disabled { opacity: .35; cursor: default; }
+.note-drag-handle { cursor: grab; margin-left: 2px; }
+.note-drag-handle:active { cursor: grabbing; }
+.quick-copy-dialog { margin: auto; width: min(540px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); padding: 0; border: 1px solid #e5def0; border-radius: 16px; background: #fff; box-shadow: 0 24px 80px #251d3433; }
+.quick-copy-dialog::backdrop { background: #251d3466; }
+@media (hover: hover) {
+	.note-action-group:hover { position: relative; z-index: 1; transform: scale(1.1); box-shadow: 0 3px 12px #423a5012; }
+}
+@media (pointer: coarse) {
+	.note-action { width: 34px; height: 36px; }
+	.note-controls { gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) {
+	.note-action-group { transition: none; }
+	.note-action-group:hover, .note-action-group:focus-within { transform: none; }
+}

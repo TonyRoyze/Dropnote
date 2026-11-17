@@ -18,6 +18,8 @@ Without Supabase credentials, rooms are stored in this browser only. To share ro
 
 Edit notes inline with Save/Cancel, or delete individual notes after confirmation. Drag a note by its handle or use the up/down arrows to change the shared order. Supabase Realtime refreshes other connected clients after additions, edits, deletions, and reorders.
 
+Press **⌘G** (or **Ctrl+G**) in a room to open Quick copy. Type a note number or search its text, use the arrow keys to choose, and press Enter to copy. Escape closes the picker. The Quick copy button opens the same picker on touch devices. Note actions are grouped into edit/delete, reorder, and copy controls, with the drag handle on the far right.
+
 New notes appear at the top by default. Enable **Oldest first** to reverse the shared order; this preference stays in your browser. Manual reordering works in either direction, so a custom order may no longer be chronological.
 
 For existing Supabase installations, rerun `supabase/setup.sql` to enable saved ordering, editing, deletion, and drag-and-drop. The note content remains in Postgres and is fetched through the room-code functions.
